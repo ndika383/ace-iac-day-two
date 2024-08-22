@@ -34,7 +34,7 @@ jobs:
         continue-on-error: true
 
       - name: Update Pull Request
-        uses: actions/github-script@0.9.0
+        uses: actions/github-script@v6
         if: github.event_name == 'pull_request'
         env:
           PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
@@ -61,10 +61,10 @@ jobs:
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
-      # Automatically approve the pull request (self-review)
+      # Auto-approve the pull request
       - name: Auto-approve Pull Request
         if: github.event_name == 'pull_request'
-        uses: hmarr/auto-approve-action@v3.1.0
+        uses: juliangruber/approve-pull-request-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -86,7 +86,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: context.issue.number,
-                merge_method: 'squash', # or 'merge' or 'rebase'
+                merge_method: 'squash',
               });
             }
 
