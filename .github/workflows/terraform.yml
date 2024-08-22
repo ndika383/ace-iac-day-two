@@ -1,25 +1,16 @@
-# This is a basic workflow to help you get started with Actions
-
 name: 'Terraform Cloud'
 
-# Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
   push:
     branches: [ main ]
   pull_request:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "terraform"
   terraform:
     name: 'Terraform'
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout
         uses: actions/checkout@v2
 
@@ -28,24 +19,20 @@ jobs:
         with:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
-      # Check for proper terraform formatting
       - name: Terraform Format
         id: fmt
         run: terraform fmt -check
 
-      # Initialize Terraform
       - name: Terraform Init
         id: init
         run: terraform init
 
-      # Terraform plan on pull requests only
       - name: Terraform Plan
         id: plan
         if: github.event_name == 'pull_request'
         run: terraform plan -no-color
         continue-on-error: true
 
-      # Add terraform plan output back into the pull request
       - name: Update Pull Request
         uses: actions/github-script@0.9.0
         if: github.event_name == 'pull_request'
@@ -63,7 +50,6 @@ jobs:
             \`\`\`
             </details>
             *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
-
             github.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -71,12 +57,39 @@ jobs:
               body: output
             })
 
-      # Exit on Plan failure
       - name: Terraform Plan Status
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
-      # Terraform apply on push to main branch
+      # Automatically approve the pull request (self-review)
+      - name: Auto-approve Pull Request
+        if: github.event_name == 'pull_request'
+        uses: hmarr/auto-approve-action@v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Merge the pull request after approval
+      - name: Auto-merge Pull Request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pull_request = await github.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            if (pull_request.data.state === 'open') {
+              await github.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                merge_method: 'squash', # or 'merge' or 'rebase'
+              });
+            }
+
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve
