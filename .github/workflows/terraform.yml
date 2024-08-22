@@ -1,42 +1,29 @@
-name: 'Terraform Cloud'
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-
-jobs:
-  terraform:
+@@ -16,15 +16,18 @@ jobs:
     name: 'Terraform'
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
 
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout
+        uses: actions/checkout@v2
         uses: actions/checkout@v3
 
       - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
         uses: hashicorp/setup-terraform@v2
         with:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
-      - name: Terraform Format
-        id: fmt
-        run: terraform fmt -check
+@@ -47,13 +50,22 @@ jobs:
 
-      - name: Terraform Init
-        id: init
-        run: terraform init
-
-      - name: Terraform Plan
-        id: plan
-        if: github.event_name == 'pull_request'
-        run: terraform plan -no-color
-        continue-on-error: true
-
+      # Add terraform plan output back into the pull request
       - name: Update Pull Request
+        uses: actions/github-script@0.9.0
         uses: actions/github-script@v6
         if: github.event_name == 'pull_request'
         env:
@@ -56,16 +43,10 @@ jobs:
             const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
             #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
             #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
-            <details><summary>Show Plan</summary>
-            \`\`\`
-            ${process.env.PLAN}
-            \`\`\`
+@@ -64,7 +76,14 @@ jobs:
             </details>
             *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
-
             github.issues.createComment({
-=======
-
             if (botComment) {
               github.rest.issues.deleteComment({
                 owner: context.repo.owner,
@@ -74,46 +55,6 @@ jobs:
               });
             }
             github.rest.issues.createComment({
-
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: output
-            })
-
-      - name: Terraform Plan Status
-        if: steps.plan.outcome == 'failure'
-        run: exit 1
-
-      # Auto-approve the pull request
-      - name: Auto-approve Pull Request
-        if: github.event_name == 'pull_request'
-        uses: juliangruber/approve-pull-request-action@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # Merge the pull request after approval
-      - name: Auto-merge Pull Request
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const pull_request = await github.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-            });
-
-            if (pull_request.data.state === 'open') {
-              await github.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.issue.number,
-                merge_method: 'squash',
-              });
-            }
-
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve
