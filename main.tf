@@ -1,5 +1,5 @@
 // ACE-IAC Git Aviatrix Infrastructure
-
+// Muhammad AbdulRehman Aamer Pull Request
 data "aviatrix_spoke_gateway" "egress" {
   gw_name = var.azure_spoke2_name
 }
