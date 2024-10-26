@@ -6,4 +6,14 @@ terraform {
       name = "ace-iac-day-two"
     }
   }
+#terraform organization
+terraform {
+  Cloud{
+organization = "aceinc"
+workspaces {
+   name = "ace-iac-day-two"
+      }
+    }
+  }
 }
+
