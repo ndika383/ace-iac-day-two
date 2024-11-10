@@ -1,16 +1,1 @@
-name: Terraform Format Check
-
-on: [push]
-
-jobs:
-  format:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Run terraform fmt check
-        run: terraform fmt -check
-
-      - name: Set output (updated method)
-        run: echo "output_name=value" >> $GITHUB_OUTPUT
+terraform fmt
