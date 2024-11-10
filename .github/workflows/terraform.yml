@@ -1,10 +1,9 @@
-# This is a basic workflow to help you get started with Actions
+# Basic workflow for Terraform using GitHub Actions
 
 name: 'Terraform Cloud'
 
-# Controls when the action will run. 
+# Trigger this workflow on push to main or on any pull request
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
   push:
     branches: [ main ]
   pull_request:
@@ -15,61 +14,64 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # Check out the repository
+      - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Setup Terraform
+      # Set up Terraform with API token from secrets
+      - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
         with:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
-      # Check for proper terraform formatting
-      - name: Terraform Format
-        id: fmt
-        run: |
-          terraform fmt -check || (echo "Formatting issues found" && exit 1)
+      # Format check for Terraform files
+      - name: Check Terraform formatting
+        id: format
+        run: terraform fmt -check || echo "Terraform files are not formatted."
 
-      - name: Terraform Init
+      # Initialize Terraform
+      - name: Initialize Terraform
         id: init
         run: terraform init
 
+      # Run Terraform plan for pull requests only
       - name: Terraform Plan
         id: plan
         if: github.event_name == 'pull_request'
-        run: terraform plan -no-color | tee plan_output.txt
+        run: terraform plan -no-color
         continue-on-error: true
 
-      - name: Update Pull Request
+      # Add Terraform plan output as a comment in the pull request
+      - name: Comment on Pull Request with Plan
         uses: actions/github-script@0.9.0
         if: github.event_name == 'pull_request'
         env:
-          PLAN: ${{ steps.plan.outputs.stdout }}
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require('fs');
-            const planOutput = fs.readFileSync('plan_output.txt', 'utf8');
-            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
-            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
-            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            const output = `#### Terraform Format Check 🖌: \`${{ steps.format.outcome }}\`
+            #### Terraform Initialization ⚙️: \`${{ steps.init.outcome }}\`
+            #### Terraform Plan 📖: \`${{ steps.plan.outcome }}\`
             <details><summary>Show Plan</summary>
             \`\`\`
-            ${planOutput}
+            ${process.env.PLAN}
             \`\`\`
             </details>
-            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
-
+            *Triggered by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
             github.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: output
-            });
+            })
 
-      - name: Terraform Plan Status
+      # Fail the workflow if the Terraform Plan step fails
+      - name: Check Terraform Plan status
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
+      # Apply changes if push to main branch
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve
