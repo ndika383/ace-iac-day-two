@@ -18,7 +18,7 @@ jobs:
         with:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
-      # Automatically format Terraform files to avoid fmt check failure
+      # Automatically format Terraform files
       - name: Format Terraform files
         run: terraform fmt -recursive
 
@@ -31,7 +31,7 @@ jobs:
         run: terraform plan -no-color
         continue-on-error: true
 
-      # Comment the plan output on the pull request
+      # Comment on the Pull Request with the plan output
       - name: Comment on Pull Request with Plan
         uses: actions/github-script@0.9.0
         if: github.event_name == 'pull_request'
@@ -59,7 +59,7 @@ jobs:
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
-      # Apply changes on main branch pushes only
+      # Apply changes on push to the main branch
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve
